@@ -46,6 +46,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  register: (data: RegisterData) => Promise<boolean>;
 
   createOfficer: (name: string, username: string, email: string) => Promise<boolean>;
   updateOfficer: (id: string, fields: { name?: string; username?: string; email?: string; walletAddress?: string }) => void;
@@ -59,6 +60,7 @@ interface AuthContextType {
 
   updateUser: (id: string, fields: { name?: string; email?: string; password?: string }) => void;
   updateUsers: (updatedUsers: User[]) => void;
+  deleteUser: (userId: string, currentPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -293,6 +295,60 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         variant: "destructive",
       });
       return false;
+    }
+  };
+
+  // Authentication: register function
+  const register = async (data: RegisterData): Promise<boolean> => {
+    console.log('[AuthProvider] Registering user:', data);
+    
+    try {
+      // Check if username or email already exists
+      const userExists = users.some(
+        (user) => user.username === data.username || user.email === data.email
+      );
+      
+      if (userExists) {
+        throw new Error('Username or email already exists');
+      }
+      
+      // Create new user (initially not approved)
+      const newUser: User = {
+        id: `user_${Date.now()}`,
+        name: data.name,
+        username: data.username,
+        email: data.email,
+        role: 'bidder',
+        createdAt: new Date(),
+        isApproved: false,
+        walletAddress: data.walletAddress,
+        profileData: data,
+        permissions: {
+          canCreate: false,
+          canApprove: false,
+          isActive: true
+        }
+      };
+      
+      // Add to users list
+      const updatedUsers = [...users, newUser];
+      setUsers(updatedUsers);
+      persistUsers(updatedUsers);
+      
+      // Store password (for demo purposes only - in a real app, this would be hashed)
+      PASSWORD_MAP[data.username] = data.password;
+      persistPasswordMap(PASSWORD_MAP);
+      
+      // Notify admin
+      notifyOfficers(
+        `New registration from ${data.companyName} (${data.email})`,
+        newUser.id
+      );
+      
+      return true;
+    } catch (error) {
+      console.error('[AuthProvider] Registration error:', error);
+      throw error;
     }
   };
 
@@ -906,6 +962,57 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     });
   }, []);
 
+  const deleteUser = async (userId: string, currentPassword: string): Promise<boolean> => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+      
+      // In a real app, you would verify the current password with your backend
+      // For this demo, we'll just check if the password is not empty
+      if (!currentPassword) {
+        throw new Error('Current password is required');
+      }
+      
+      // In a real app, you would make an API call to delete the user
+      const updatedUsers = users.filter(user => user.id !== userId);
+      
+      // Update local storage
+      localStorage.setItem('users', JSON.stringify(updatedUsers));
+      
+      // If the deleted user is the current user, log them out
+      if (authState.user && authState.user.id === userId) {
+        // Clear auth state
+        setAuthState({
+          user: null,
+          isLoading: false,
+          error: null
+        });
+        
+        // Clear any stored tokens
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+      } else {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+      }
+      
+      toast({
+        title: "Account Deleted",
+        description: "Your account has been successfully deleted.",
+        variant: "default"
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting user account:', error);
+      setAuthState(prev => ({ ...prev, error: 'Failed to delete account', isLoading: false }));
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to delete account',
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -915,19 +1022,19 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         currentUser: authState.user,
         login,
         logout,
-
+        register,
         createOfficer,
         updateOfficer,
         removeOfficer,
-        updateUsers,
-        markNotificationRead,
         approveUser,
         rejectUser,
-        updateUser,
         notifyUser,
         notifyOfficers,
+        markNotificationRead,
         syncOfficersFromBlockchain,
-
+        updateUser,
+        updateUsers,
+        deleteUser,
         isAuthenticated: !!authState.user,
       }}
     >

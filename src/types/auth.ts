@@ -2,6 +2,7 @@ export type UserRole = "admin" | "officer" | "user" | "bidder";
 
 // Payload for user registration
 export interface RegisterData {
+  // Account Information
   username: string;
   password: string;
   confirmPassword?: string;
@@ -9,15 +10,17 @@ export interface RegisterData {
   role: UserRole;
   email: string;
   mobileNumber: string;
-  walletAddress?: string;
+  walletAddress: string;
+  countryCode?: string;
   
   // Company Details
   bidderType: "Indian" | "Foreign";
   companyName: string;
   registrationNumber: string;
-  gstNumber?: string;
-  panNumber?: string;
+  taxId?: string; // Optional field for GST/PAN/Tax ID
   establishmentYear: string;
+  legalStatus: 'private' | 'public' | 'llp' | 'opc' | 'other';
+  companyCategory: 'startup' | 'sme' | 'msme' | 'large' | 'mnc' | 'other';
   
   // Address Details
   registeredAddress: string;
@@ -27,6 +30,36 @@ export interface RegisterData {
   
   // Additional Information
   additionalInfo?: string;
+  supportingDocuments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+    uploadedAt: Date;
+  }>;
+  
+  // Business Profile
+  annualTurnover?: number;
+  employeeCount?: number;
+  website?: string;
+  businessDescription?: string;
+  
+  // References
+  references?: Array<{
+    name: string;
+    contact: string;
+    email: string;
+    relation: string;
+  }>;
+  
+  // System Fields
+  isApproved?: boolean;
+  approverId?: string;
+  approvedAt?: Date;
+  rejectionReason?: string;
+  rejectionRemarks?: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'needs_revision';
+  lastUpdatedAt?: Date;
   
   // Captcha and Terms
   terms1: boolean;

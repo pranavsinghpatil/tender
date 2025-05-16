@@ -1,13 +1,51 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, Mail, Building2, Shield, Key, Wallet } from "lucide-react";
+import { User, Mail, Building2, Shield, Key, Wallet, AlertTriangle, Trash2 } from "lucide-react";
 import BlockchainDashboard from "@/components/blockchain/BlockchainDashboard";
 import TransactionHistory from "@/components/blockchain/TransactionHistory";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const Profile = () => {
-  const { authState } = useAuth();
+  const { authState, deleteUser, logout } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [password, setPassword] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const { toast } = useToast();
+  
+  const handleDeleteAccount = async () => {
+    if (!password) {
+      setDeleteError('Please enter your password to confirm account deletion');
+      return;
+    }
+    
+    try {
+      setIsDeleting(true);
+      setDeleteError('');
+      
+      const success = await deleteUser(authState.user!.id, password);
+      
+      if (success) {
+        toast({
+          title: "Account Deleted",
+          description: "Your account has been successfully deleted.",
+          variant: "default"
+        });
+        
+        // Redirect to home page after successful deletion
+        window.location.href = '/';
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete account');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (!authState.user) {
     return (
@@ -188,6 +226,87 @@ const Profile = () => {
             </TabsContent>
           )}
         </Tabs>
+        
+        {/* Danger Zone */}
+        <div className="mt-12 border-t border-red-200 pt-8">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-xl font-semibold text-red-600 flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              Danger Zone
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              These actions are irreversible. Please be certain.
+            </p>
+            
+            <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-100">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h3 className="font-medium text-red-800">Delete Account</h3>
+                  <p className="text-sm text-red-700">
+                    Once you delete your account, there is no going back. Please be certain.
+                  </p>
+                </div>
+                
+                <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive" className="whitespace-nowrap">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Account
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle className="text-red-600">Delete Your Account</DialogTitle>
+                      <DialogDescription>
+                        This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="password" className="text-right">
+                          Password
+                        </Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="col-span-3"
+                          placeholder="Enter your password to confirm"
+                        />
+                      </div>
+                      
+                      {deleteError && (
+                        <p className="text-sm text-red-500 text-center">{deleteError}</p>
+                      )}
+                    </div>
+                    
+                    <DialogFooter>
+                      <Button 
+                        type="button" 
+                        variant="outline"
+                        onClick={() => setIsDeleteDialogOpen(false)}
+                        disabled={isDeleting}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="button"
+                        variant="destructive"
+                        onClick={handleDeleteAccount}
+                        disabled={isDeleting || !password}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        {isDeleting ? 'Deleting...' : 'Delete Account'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
